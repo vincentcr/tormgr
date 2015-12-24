@@ -1,0 +1,32 @@
+api:
+  build: .
+  ports:
+  - "3456:3456"
+  links:
+  - redis
+  - postgres
+  - rabbitmq
+  environment: &environment
+    ENV: dev
+    API_PUBLIC_URL: "http://192.168.99.100:3456/api/v1"
+    BITLY_API_KEY: "c7399c2f47f02017fb3f02f46f10ce1099317d8a"
+redis:
+  image: redis:3.0
+  ports:
+  - "6379:6379"
+
+postgres:
+  build: db
+  ports:
+  - "5432:5432"
+  environment:
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ENV: dev
+    DB_NAME: 'tormgr_dev'
+    DB_USER: 'tormgr_dev'
+    DB_PASSWD: 'changeme' # change this in prod
+
+
+rabbitmq:
+  image: rabbitmq:3.5
+  hostname: rabbit

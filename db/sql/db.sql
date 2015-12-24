@@ -1,0 +1,6 @@
+CREATE USER :dbuser WITH ENCRYPTED PASSWORD :'dbpasswd';
+CREATE DATABASE :dbname WITH OWNER=:dbuser ENCODING='UTF8';
+\c :dbname
+
+CREATE EXTENSION "uuid-ossp";
+CREATE EXTENSION "pgcrypto";

@@ -1,0 +1,54 @@
+{
+	"ImportPath": "github.com/vincentcr/tormgr",
+	"GoVersion": "go1.5.2",
+	"Deps": [
+		{
+			"ImportPath": "github.com/OneOfOne/xxhash",
+			"Rev": "c1973d4599b099526c59ef7229167af1f353d3c8"
+		},
+		{
+			"ImportPath": "github.com/lib/pq",
+			"Comment": "go1.0-cutoff-51-ga8d8d01",
+			"Rev": "a8d8d01c4f91602f876bf5aa210274e8203a6b45"
+		},
+		{
+			"ImportPath": "github.com/satori/go.uuid",
+			"Rev": "afe1e2ddf0f05b7c29d388a3f8e76cb15c2231ca"
+		},
+		{
+			"ImportPath": "github.com/streadway/amqp",
+			"Rev": "b4f3ceab0337f013208d31348b578d83c0064744"
+		},
+		{
+			"ImportPath": "github.com/zenazn/goji",
+			"Comment": "v0.9.0-25-gf11b3b8",
+			"Rev": "f11b3b82931df3c540a0a960b6b1de60094d33d6"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/bcrypt",
+			"Rev": "1e856cbfdf9bc25eefca75f83f25d55e35ae72e0"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/blowfish",
+			"Rev": "1e856cbfdf9bc25eefca75f83f25d55e35ae72e0"
+		},
+		{
+			"ImportPath": "gopkg.in/bsm/ratelimit.v1",
+			"Rev": "bda20d5067a03094fc6762f7ead53027afac5f28"
+		},
+		{
+			"ImportPath": "gopkg.in/bufio.v1",
+			"Comment": "v1",
+			"Rev": "567b2bfa514e796916c4747494d6ff5132a1dfce"
+		},
+		{
+			"ImportPath": "gopkg.in/redis.v3",
+			"Comment": "v3.1.4",
+			"Rev": "d36559f9ce085e75cccdb58e9a54e36621bfd4c1"
+		},
+		{
+			"ImportPath": "gopkg.in/validator.v2",
+			"Rev": "8e445b9dc14ab1a1a78cc1f712df991307173ee6"
+		}
+	]
+}

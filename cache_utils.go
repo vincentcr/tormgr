@@ -59,37 +59,6 @@ func cacheMakeInvalidateKey(hint cacheHint) string {
 	return fmt.Sprintf("rkeys|%s|%s|%s", hint.table, hint.userID, hint.recordID)
 }
 
-// func sortedKeyList(m map[string]interface{}) []string {
-// 	sortedKeys := make([]string, 0, len(cacheHint.params))
-// 	for k := range cacheHint.params {
-// 		sortedKeys = append(sortedKeys, k)
-// 	}
-// 	sort.Sort(sortedKeys)
-// 	return sortedKeys
-// }
-
-// const subsetsMaxSize = 8 // 8 => 255 subsets
-//
-// func subsets(list []string) [][]string {
-// 	size := len(list)
-// 	num_sets := int(math.Pow(float64(2), float64(size)))
-// 	subsets := make([][]string, 1, num_sets) //1st elem will be empty set
-//
-// 	for i := 1; i < num_sets; i++ {
-// 		max_bits := int(math.Floor(math.Log2(float64(i))))
-// 		subset := make([]string, 0, max_bits)
-// 		for j := 0; j <= max_bits; j++ {
-// 			bit := (i >> uint(j)) & 1 // bit value at position j
-// 			if bit == 1 {
-// 				subset = append(subset, list[j])
-// 			}
-// 		}
-// 		subsets = append(subsets, subset)
-// 	}
-//
-// 	return subsets
-// }
-
 func cacheInvalidate(cacheHint cacheHint) error {
 	relatedCacheHints := cacheMakeRelatedCacheHints(cacheHint)
 	rkeys := []string{}

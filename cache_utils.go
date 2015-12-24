@@ -41,10 +41,10 @@ func cacheGet(key string) ([]byte, string, error) {
 
 func cacheSet(key string, data []byte, expiration time.Duration, hint cacheHint) (string, error) {
 	etag := cacheMakeEtag()
+	rkey := cacheMakeInvalidateKey(hint)
 	_, err := services.redis.Pipelined(func(pipe *redis.Pipeline) error {
 		pipe.HMSet(key, "data", string(data), "etag", etag)
 		pipe.Expire(key, expiration)
-		rkey := cacheMakeInvalidateKey(hint)
 		pipe.SAdd(rkey, key)
 		return nil
 	})

@@ -3,9 +3,11 @@ package main
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/satori/go.uuid"
@@ -55,6 +57,45 @@ func sameID(id1, id2 string) bool {
 
 func normalizeID(id string) RecordID {
 	return RecordID(strings.ToLower(strings.Replace(id, "-", "", -1)))
+}
+
+func dbFind(dest interface{}, cacheHint cacheHint, query string, args ...interface{}) (Cacheable, error) {
+	return dbFindExec(services.db.Select, dest, cacheHint, query, args)
+}
+
+func dbFindOne(dest interface{}, cacheHint cacheHint, query string, args ...interface{}) (Cacheable, error) {
+	cacheable, err := dbFindExec(services.db.Get, dest, cacheHint, query, args...)
+	if err == sql.ErrNoRows {
+		return Cacheable{}, ErrNotFound
+	} else {
+		return cacheable, err
+	}
+}
+
+type queryExec func(dest interface{}, query string, args ...interface{}) error
+
+func dbFindExec(queryExec queryExec, dest interface{}, cacheHint cacheHint, query string, args ...interface{}) (Cacheable, error) {
+	cacheKey := cacheMakeKeyFromQuery(query, args)
+	cacheable, err := cacheGet(cacheKey)
+	if err == nil || err != ErrNotFound {
+		return cacheable, err
+	}
+
+	err = queryExec(dest, query, args...)
+	if err != nil {
+		return Cacheable{}, err
+	}
+	bytes, err := json.Marshal(dest)
+	if err != nil {
+		return Cacheable{}, fmt.Errorf("Unable to convert %#v to json: %v", dest, err)
+	}
+
+	etag, err := cacheSet(cacheKey, bytes, 1*time.Hour, cacheHint)
+	if err != nil {
+		return Cacheable{}, err
+	}
+
+	return Cacheable{bytes, etag}, nil
 }
 
 func dumpQueryResults(rows *sql.Rows) {

@@ -22,7 +22,7 @@ CREATE TABLE folders(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   owner_id uuid REFERENCES users(id) NOT NULL,
   date_created TIMESTAMP NOT NULL DEFAULT timeofday()::TIMESTAMP,
-  name TEXT NOT NULL CHECK (name != '')
+  name VARCHAR(1024) NOT NULL CHECK (name != '')
 );
 CREATE INDEX idx_folders_owner_id ON folders(owner_id);
 CREATE INDEX idx_folders_id_owner_id ON folders(id, owner_id);
@@ -31,13 +31,13 @@ CREATE UNIQUE INDEX idx_folders_owner_id_name ON folders(owner_id, lower(name));
 
 CREATE TABLE torrents(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  folder_id uuid REFERENCES folders(id) ON DELETE CASCADE NOT NULL,
+  folder VARCHAR(1024) REFERENCES folders(name) ON DELETE CASCADE NOT NULL,
   owner_id uuid REFERENCES users(id) NOT NULL,
   date_created TIMESTAMP NOT NULL DEFAULT timeofday()::TIMESTAMP,
-  url TEXT CHECK (url != ''),
-  info_hash TEXT CHECK (info_hash != '')
+  info_hash TEXT NOT NULL CHECK (info_hash ~ '^[A-F0-9]{40}$'),
+  source_url TEXT,
+  data BYTEA
 );
-CREATE INDEX idx_torrents_folder_id ON torrents(folder_id);
+CREATE INDEX idx_torrents_folder ON torrents(folder);
 CREATE INDEX idx_torrents_id_owner_id ON torrents(id, owner_id);
-CREATE UNIQUE INDEX idx_torrents_id_url ON torrents(id, url);
 CREATE UNIQUE INDEX idx_torrents_id_info_hash ON torrents(id, info_hash);

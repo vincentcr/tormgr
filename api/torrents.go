@@ -2,8 +2,9 @@ package main
 
 type Torrent struct {
 	ID        RecordID `json:"id"`
-	FolderID  RecordID `json:"folderID,omitifempty"`
-	Hash      string   `json:"hash"`
-	SourceURL string   `json:"sourceURL"`
+	Folder    string   `json:"folder"`
+	SourceURL string   `json:"sourceURL"` //original url used to retrieve the torrent
+	InfoHash  string   `json:"infoHash"`
+	Data      []byte   `json:"data,omitifempty"`
 	ownerID   RecordID
 }

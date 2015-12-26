@@ -16,7 +16,7 @@ func main() {
 }
 
 func setupServer() {
-	m := NewMux()
+	m := NewMux("/api/1.0")
 	setupMiddlewares(m)
 	routeUsers(m)
 	m.Serve()
@@ -41,7 +41,7 @@ type UserRequest struct {
 
 func routeUsers(m *Mux) {
 
-	m.Post("/api/1.0.0/users", func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+	m.Post("/users", func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		var userReq UserRequest
 		if err := parseAndValidate(r, &userReq); err != nil {
 			return err
@@ -67,7 +67,7 @@ func routeUsers(m *Mux) {
 		return jsonify(res, w)
 	})
 
-	m.Post("/api/1.0.0/users/tokens", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+	m.Post("/users/tokens", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
 		token, err := AccessTokenCreateFull(user)
 		if err != nil {
@@ -82,7 +82,7 @@ func routeUsers(m *Mux) {
 		return jsonify(res, w)
 	}))
 
-	m.Get("/api/1.0.0/users/me", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+	m.Get("/users/me", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
 		return jsonify(user, w)
 	}))

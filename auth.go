@@ -21,6 +21,10 @@ func mustAuthenticateRW(h handler) handler {
 	return mustAuthenticate(AccessReadWrite, h)
 }
 
+func mustAuthenticateR(h handler) handler {
+	return mustAuthenticate(AccessRead, h)
+}
+
 func mustAuthenticate(access Access, h handler) handler {
 	return func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		_, ok := c.GetUser()
@@ -36,7 +40,7 @@ func mustAuthenticate(access Access, h handler) handler {
 type AuthMethod string
 type AuthCreds []string
 
-var (
+const (
 	AuthMethodNone   AuthMethod = ""
 	AuthMethodBasic  AuthMethod = "Basic"
 	AuthMethodBearer AuthMethod = "Bearer"

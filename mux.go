@@ -11,6 +11,7 @@ import (
 )
 
 type Mux struct {
+	root *web.Mux
 }
 
 type TMContext struct {
@@ -38,8 +39,10 @@ func (c *TMContext) MustGetUser() User {
 type middleware func(c *TMContext, w http.ResponseWriter, r *http.Request) error
 type handler func(c *TMContext, w http.ResponseWriter, r *http.Request) error
 
-func NewMux() *Mux {
-	return &Mux{}
+func NewMux(rootUrl string) *Mux {
+	root := web.New()
+	goji.Handle(rootUrl, root)
+	return &Mux{root: root}
 }
 
 func (mux *Mux) Serve() {
@@ -67,49 +70,49 @@ func (mux *Mux) Use(m middleware) {
 }
 
 func (mux *Mux) Delete(pattern web.PatternType, h handler) {
-	goji.Delete(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
+	mux.root.Delete(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
 		mux.handleRequest(c, w, r, h)
 	})
 }
 
 func (mux *Mux) Head(pattern web.PatternType, h handler) {
-	goji.Head(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
+	mux.root.Head(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
 		mux.handleRequest(c, w, r, h)
 	})
 }
 
 func (mux *Mux) Get(pattern web.PatternType, h handler) {
-	goji.Get(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
+	mux.root.Get(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
 		mux.handleRequest(c, w, r, h)
 	})
 }
 
 func (mux *Mux) Options(pattern web.PatternType, h handler) {
-	goji.Options(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
+	mux.root.Options(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
 		mux.handleRequest(c, w, r, h)
 	})
 }
 
 func (mux *Mux) Patch(pattern web.PatternType, h handler) {
-	goji.Patch(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
+	mux.root.Patch(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
 		mux.handleRequest(c, w, r, h)
 	})
 }
 
 func (mux *Mux) Post(pattern web.PatternType, h handler) {
-	goji.Post(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
+	mux.root.Post(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
 		mux.handleRequest(c, w, r, h)
 	})
 }
 
 func (mux *Mux) Put(pattern web.PatternType, h handler) {
-	goji.Put(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
+	mux.root.Put(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
 		mux.handleRequest(c, w, r, h)
 	})
 }
 
 func (mux *Mux) Trace(pattern web.PatternType, h handler) {
-	goji.Trace(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
+	mux.root.Trace(pattern, func(c web.C, w http.ResponseWriter, r *http.Request) {
 		mux.handleRequest(c, w, r, h)
 	})
 }

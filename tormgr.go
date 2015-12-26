@@ -13,6 +13,7 @@ func setupServer() {
 	m := NewMux("/api/1.0")
 	setupMiddlewares(m)
 	routeUsers(m)
+	routeTorrents(m)
 	m.Serve()
 }
 
@@ -82,6 +83,24 @@ func routeUsers(m *Mux) {
 	}))
 }
 
+func routeTorrents(m *Mux) {
+	m.Get("/folders", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		cacheable, err := FolderGetAll(user)
+		if err != nil {
+			return err
+		}
+		return writeCacheable(r, w, "application/json", cacheable)
+	}))
 
-	return err
+	// m.Post("/folders")
+	// m.Get("/folders/:folderID")
+	// m.Delete("/folders/:folderID")
+	// m.Put("/folders/:folderID")
+	//
+	// m.Get("/torrents")
+	// m.Post("/torrents")
+	// m.Get("/torrents/:torrentID")
+	// m.Put("/torrents/:torrentID")
+	// m.Delete("/torrents/:torrentID")
 }

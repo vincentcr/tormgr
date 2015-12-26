@@ -1,13 +1,13 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"math"
 	"math/rand"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/streadway/amqp"
 	"gopkg.in/redis.v3"
@@ -15,7 +15,7 @@ import (
 
 var services = struct {
 	config Config
-	db     *sql.DB
+	db     *sqlx.DB
 	redis  *redis.Client
 }{}
 
@@ -64,9 +64,9 @@ func retry(label string, maxRetries int, fn func() error) error {
 }
 
 func setupDB() error {
-	url := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable",
-		services.config.Postgres.User, services.config.Postgres.Password, services.config.Postgres.Addr, services.config.Postgres.Database)
-	db, err := sql.Open("postgres", url)
+	pgcfg := services.config.Postgres
+	url := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", pgcfg.User, pgcfg.Password, pgcfg.Addr, pgcfg.Database)
+	db, err := sqlx.Open("postgres", url)
 	if err != nil {
 		return fmt.Errorf("unable to create db driver with params %v: %v", url, err)
 	}

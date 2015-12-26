@@ -9,7 +9,7 @@ type Folder struct {
 	ownerID RecordID
 }
 
-func CreateFolder(user User, token string, folder *Folder) error {
+func FolderCreate(user User, token string, folder *Folder) error {
 	if folder.ID == "" {
 		folder.ID = newID()
 	}
@@ -44,4 +44,14 @@ func CreateFolder(user User, token string, folder *Folder) error {
 	// invalidateCache(folderCacheHint{user, folder.ID})
 
 	return tx.Commit()
+}
+
+func FolderGetAll(user User) (Cacheable, error) {
+	cacheHint := cacheHint{userID: user.ID, table: "folders"}
+	return dbFind([]Folder{}, cacheHint, "SELECT id,name from folders where owner_id=?", user.ID)
+}
+
+func FolderGet(user User, id RecordID) (Cacheable, error) {
+	cacheHint := cacheHint{userID: user.ID, table: "folders", recordID: id}
+	return dbFindOne(Folder{}, cacheHint, "SELECT id,name from folders where id=? AND owner_id=?", id, user.ID)
 }

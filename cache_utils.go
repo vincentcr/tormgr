@@ -15,6 +15,14 @@ type cacheHint struct {
 	table    string
 	recordID RecordID
 }
+type ETag string
+
+type Cacheable struct {
+	Bytes []byte
+	ETag  ETag
+}
+
+const ETagNil ETag = ""
 
 func cacheMakeKeyFromQuery(query string, args []interface{}) string {
 	h := xxhash.NewS64(0XBABE)
@@ -26,24 +34,25 @@ func cacheMakeKeyFromQuery(query string, args []interface{}) string {
 	return fmt.Sprintf("q.%v", h.Sum64())
 }
 
-func cacheGet(key string) ([]byte, string, error) {
+func cacheGet(key string) (Cacheable, error) {
 	hash, err := services.redis.HMGet(key, "data", "etag").Result()
 	if err == redis.Nil || hash[0] == nil {
-		return nil, "", nil
+		return Cacheable{}, ErrNotFound
 	} else if err != nil {
-		return nil, "", fmt.Errorf("error fetching from cache with key %v: %v", key, err)
-	} else {
-		data := hash[0].(string)
-		etag := hash[1].(string)
-		return []byte(data), etag, nil
+		return Cacheable{}, fmt.Errorf("error fetching from cache with key %v: %v", key, err)
 	}
+
+	bytes := []byte(hash[0].(string))
+	etag := ETag(hash[1].(string))
+	return Cacheable{bytes, etag}, nil
 }
 
-func cacheSet(key string, data []byte, expiration time.Duration, hint cacheHint) (string, error) {
+func cacheSet(key string, bytes []byte, expiration time.Duration, hint cacheHint) (ETag, error) {
+
 	etag := cacheMakeEtag()
 	rkey := cacheMakeInvalidateKey(hint)
 	_, err := services.redis.Pipelined(func(pipe *redis.Pipeline) error {
-		pipe.HMSet(key, "data", string(data), "etag", etag)
+		pipe.HMSet(key, "data", string(bytes), "etag", string(etag))
 		pipe.Expire(key, expiration)
 		pipe.SAdd(rkey, key)
 		return nil
@@ -51,8 +60,8 @@ func cacheSet(key string, data []byte, expiration time.Duration, hint cacheHint)
 	return etag, err
 }
 
-func cacheMakeEtag() string {
-	return uuid.NewV4().String()
+func cacheMakeEtag() ETag {
+	return ETag(uuid.NewV4().String())
 }
 
 func cacheMakeInvalidateKey(hint cacheHint) string {

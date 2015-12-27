@@ -15,6 +15,10 @@ type cacheHint struct {
 	table    string
 	recordID RecordID
 }
+type CacheHinter interface {
+	cacheHint() cacheHint
+}
+
 type ETag string
 
 type Cacheable struct {

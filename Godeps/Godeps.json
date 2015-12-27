@@ -1,10 +1,19 @@
 {
-	"ImportPath": "github.com/vincentcr/tormgr",
+	"ImportPath": "github.com/vincentcr/tormgr/api",
 	"GoVersion": "go1.5.2",
 	"Deps": [
 		{
 			"ImportPath": "github.com/OneOfOne/xxhash",
 			"Rev": "c1973d4599b099526c59ef7229167af1f353d3c8"
+		},
+		{
+			"ImportPath": "github.com/jackpal/bencode-go",
+			"Rev": "ec35278e1ec008e45204189edb59379c2832e0ef"
+		},
+		{
+			"ImportPath": "github.com/jmoiron/sqlx",
+			"Comment": "sqlx-v1.1-53-g54aec3f",
+			"Rev": "54aec3fd91a2b2129ffaca0d652b8a9223ee2d9e"
 		},
 		{
 			"ImportPath": "github.com/lib/pq",
@@ -18,6 +27,10 @@
 		{
 			"ImportPath": "github.com/streadway/amqp",
 			"Rev": "b4f3ceab0337f013208d31348b578d83c0064744"
+		},
+		{
+			"ImportPath": "github.com/vincentcr/validator",
+			"Rev": "a1c36882908bc323e4bc2f632236c0b755acea88"
 		},
 		{
 			"ImportPath": "github.com/zenazn/goji",

@@ -34,7 +34,7 @@ func UserCreate(email string, password string) (User, error) {
 
 	_, err = services.db.Exec("INSERT INTO users(id,email,password) VALUES($1,$2,$3)", user.ID, user.Email, user.password)
 	if err != nil {
-		if isUniqueError(err) {
+		if dbIsUniqueError(err) {
 			return User{}, ErrUniqueViolation
 		} else {
 			return User{}, fmt.Errorf("unable to create user %#v: %v", user, err)

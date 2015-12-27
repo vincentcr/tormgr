@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"reflect"
 	"strings"
 	"time"
 
@@ -45,38 +46,67 @@ func newID() RecordID {
 	return id
 }
 
-func isUniqueError(err error) bool {
 func (id *RecordID) Parse(str string) {
 	*id = RecordID(strings.ToLower(strings.Replace(str, "-", "", -1)))
 }
 
+func dbExecOnRecord(desc, query string, record CacheHinter) error {
+	r, err := services.db.NamedExec(query, record)
+
+	if dbIsUniqueError(err) {
+		return ErrUniqueViolation
+	} else if err != nil {
+		return fmt.Errorf("db:%s failed on %v: %v", record, err)
+	}
+
+	if err = dbCheckRowsAffected(r, 1); err != nil {
+		return fmt.Errorf("db:%s failed on %v: %v", record, err)
+	}
+
+	if err := cacheInvalidate(record.cacheHint()); err != nil {
+		return fmt.Errorf("db:%s failed on %v: %v", record, err)
+	}
+
+	return nil
+}
+
+func dbIsUniqueError(err error) bool {
 	if err, ok := err.(*pq.Error); ok {
 		return err.Code.Name() == "unique_violation"
 	}
 	return false
 }
 
-func sameID(id1, id2 string) bool {
-	return normalizeID(id1) == normalizeID(id2)
+func dbCheckRowsAffected(res sql.Result, expected int64) error {
+	actual, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("could not check rows affected: %v", err)
+	}
+	if actual != expected {
+		return fmt.Errorf("unexpected result: expected %v, got %v", expected, actual)
+	}
+	return nil
 }
 
+type queryExec func(dest interface{}, query string, args ...interface{}) error
 
-func dbFind(dest interface{}, cacheHint cacheHint, query string, args ...interface{}) (Cacheable, error) {
-	return dbFindExec(services.db.Select, dest, cacheHint, query, args)
+func dbFind(dest CacheHinter, query string, args ...interface{}) (Cacheable, error) {
+	t := reflect.TypeOf(dest)
+	slice := reflect.MakeSlice(reflect.SliceOf(t), 0, 0)
+	return dbFindExec(services.db.Select, slice, dest.cacheHint(), query, args)
 }
 
-func dbFindOne(dest interface{}, cacheHint cacheHint, query string, args ...interface{}) (Cacheable, error) {
-	cacheable, err := dbFindExec(services.db.Get, dest, cacheHint, query, args...)
+func dbFindOne(dest CacheHinter, query string, args ...interface{}) (Cacheable, error) {
+	cacheable, err := dbFindExec(services.db.Get, dest, dest.cacheHint(), query, args)
 	if err == sql.ErrNoRows {
 		return Cacheable{}, ErrNotFound
 	} else {
 		return cacheable, err
 	}
+
 }
 
-type queryExec func(dest interface{}, query string, args ...interface{}) error
-
-func dbFindExec(queryExec queryExec, dest interface{}, cacheHint cacheHint, query string, args ...interface{}) (Cacheable, error) {
+func dbFindExec(queryExec queryExec, dest interface{}, cacheHint cacheHint, query string, args []interface{}) (Cacheable, error) {
 	cacheKey := cacheMakeKeyFromQuery(query, args)
 	cacheable, err := cacheGet(cacheKey)
 	if err == nil || err != ErrNotFound {
@@ -100,7 +130,7 @@ func dbFindExec(queryExec queryExec, dest interface{}, cacheHint cacheHint, quer
 	return Cacheable{bytes, etag}, nil
 }
 
-func dumpQueryResults(rows *sql.Rows) {
+func dbDumpQueryResults(rows *sql.Rows) {
 	defer rows.Close()
 	cols, err := rows.Columns()
 	if err != nil {

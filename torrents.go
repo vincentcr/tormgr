@@ -2,13 +2,15 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"database/sql/driver"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 
-	"github.com/jackpal/bencode-go"
+	"github.com/zeebo/bencode"
 )
 
 var (
@@ -72,7 +74,7 @@ func TorrentCreateFromURL(user User, folder string, url string) (Torrent, error)
 	infoHash, ok := torrentInfoHashFromMagnetURL(url)
 	if !ok {
 		var err error
-		data, err = torrentDataFromHTTPURL(url)
+		data, infoHash, err = torrentDataFromHTTPURL(url)
 		if err != nil {
 			return Torrent{}, err
 		}
@@ -91,26 +93,51 @@ func TorrentCreate(torrent Torrent) (Torrent, error) {
 	return torrent, err
 }
 
-func torrentDataFromHTTPURL(url string) ([]byte, error) {
-	res, err := http.Get(url)
+func torrentDataFromHTTPURL(url string) ([]byte, string, error) {
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create torrent from source url %v: %v", url, err)
+		return nil, "", fmt.Errorf("failed to create request for %v: %v", url, err)
+	}
+	req.Header.Add("User-Agent", "tormgr/1.0") //some torrent servers do U/A filtering
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to create torrent from source url %v: %v", url, err)
 	}
 	defer res.Body.Close()
+
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read data at %v: %v", url, err)
+		return nil, "", fmt.Errorf("failed to read data at %v: %v", url, err)
 	}
 
-	//a torrent data is valid if it can be parsed as a bencoded dictionary
-	//TODO: could be interesting to index the info part for searching
-	var bdict map[string]interface{}
-	err = bencode.Unmarshal(bytes.NewBuffer(data), bdict)
+	infoHash, err := torrentComputeInfoHash(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse data at '%v' as torrent file: %v", url, err)
+		return nil, "", fmt.Errorf("invalid torrent data at %v: %v", url, err)
 	}
 
-	return data, nil
+	return data, infoHash, err
+}
+
+func torrentComputeInfoHash(data []byte) (string, error) {
+	var bdict map[string]interface{}
+
+	err := bencode.NewDecoder(bytes.NewBuffer(data)).Decode(&bdict)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse as bencoded dictionary: %v", err)
+	}
+
+	info, ok := bdict["info"]
+	if !ok {
+		return "", fmt.Errorf("info section not found in: %#v", data)
+	}
+	var b bytes.Buffer
+	err = bencode.NewEncoder(&b).Encode(info)
+	if err != nil {
+		return "", fmt.Errorf("unable to bencode %#v: %v", info, err)
+	}
+
+	infoHash := strings.ToUpper(fmt.Sprintf("%x", sha1.Sum(b.Bytes())))
+	return infoHash, nil
 }
 
 func torrentInfoHashFromMagnetURL(magnetURL string) (string, bool) {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/zenazn/goji"
 	"github.com/zenazn/goji/web"
+	gojiMiddleware "github.com/zenazn/goji/web/middleware"
 )
 
 type Mux struct {
@@ -41,7 +42,8 @@ type handler func(c *TMContext, w http.ResponseWriter, r *http.Request) error
 
 func NewMux(rootUrl string) *Mux {
 	root := web.New()
-	goji.Handle(rootUrl, root)
+	root.Use(gojiMiddleware.SubRouter)
+	goji.Handle(rootUrl+"/*", root)
 	return &Mux{root: root}
 }
 
@@ -66,7 +68,7 @@ func (mux *Mux) Use(m middleware) {
 		return http.HandlerFunc(handlerFn)
 	}
 
-	goji.Use(gojiMiddleware)
+	mux.root.Use(gojiMiddleware)
 }
 
 func (mux *Mux) Delete(pattern web.PatternType, h handler) {

@@ -34,17 +34,22 @@ func (id *RecordID) Scan(val interface{}) error {
 		return fmt.Errorf("Cast error: expected RecordID bytes, got %v", val)
 	}
 	str := string(bytes)
-	*id = normalizeID(str)
+	id.Parse(str)
 	return nil
 }
 
 func newID() RecordID {
+	var id RecordID
 	u4 := uuid.NewV4()
-	u4str := normalizeID(u4.String())
-	return u4str
+	id.Parse(u4.String())
+	return id
 }
 
 func isUniqueError(err error) bool {
+func (id *RecordID) Parse(str string) {
+	*id = RecordID(strings.ToLower(strings.Replace(str, "-", "", -1)))
+}
+
 	if err, ok := err.(*pq.Error); ok {
 		return err.Code.Name() == "unique_violation"
 	}
@@ -55,9 +60,6 @@ func sameID(id1, id2 string) bool {
 	return normalizeID(id1) == normalizeID(id2)
 }
 
-func normalizeID(id string) RecordID {
-	return RecordID(strings.ToLower(strings.Replace(id, "-", "", -1)))
-}
 
 func dbFind(dest interface{}, cacheHint cacheHint, query string, args ...interface{}) (Cacheable, error) {
 	return dbFindExec(services.db.Select, dest, cacheHint, query, args)

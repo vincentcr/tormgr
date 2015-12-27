@@ -64,7 +64,13 @@ func routeUsers(m *Mux) {
 
 	m.Post("/users/tokens", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		token, err := AccessTokenCreateFull(user)
+
+		var access Access
+		if err := access.Parse(r.URL.Query().Get("access")); err != nil {
+			return NewHttpError(http.StatusBadRequest)
+		}
+
+		token, err := AccessTokenCreate(user, access)
 		if err != nil {
 			return err
 		}

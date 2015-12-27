@@ -194,6 +194,18 @@ func routeTorrents(m *Mux) {
 		return writeCacheable(r, w, "application/json", cacheable)
 	}))
 
+	m.Get("/torrents/:torrentID/data", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		torrentID := c.URLParams["torrentID"]
+
+		data, err := TorrentGetData(user, RecordID(torrentID))
+		if err != nil {
+			return err
+		}
+
+		return writeAs(w, "application/x-bittorrent", data)
+	}))
+
 	m.Post("/torrents", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
 		createReq, err := parseTorrentCreateRequest(r)

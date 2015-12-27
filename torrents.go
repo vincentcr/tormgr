@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/sha1"
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"io/ioutil"
@@ -22,9 +23,9 @@ type Torrent struct {
 	OwnerID   RecordID      `json:"-" db:"owner_id"`
 	Folder    string        `json:"folder"`
 	InfoHash  string        `json:"infoHash" db:"info_hash"`
-	Data      []byte        `json:"data,omitifempty"`
-	SourceURL string        `json:"sourceURL" db:"source_url"`
-	Status    TorrentStatus `json:"status"`
+	Data      []byte        `json:"-"`
+	SourceURL string        `json:"sourceURL,omitempty" db:"source_url"`
+	Status    TorrentStatus `json:"status,omitempty"`
 }
 
 func (t Torrent) cacheHint() cacheHint {
@@ -58,15 +59,30 @@ func (status *TorrentStatus) Scan(val interface{}) error {
 }
 
 func TorrentGetAll(user User) (Cacheable, error) {
-	return dbFind(Torrent{OwnerID: user.ID}, "SELECT * from torrents where owner_id=$1", user.ID)
+	return dbFind(Torrent{OwnerID: user.ID}, torrentSelect("owner_id=$1"), user.ID)
 }
 
 func TorrentGetByFolder(user User, folder string) (Cacheable, error) {
-	return dbFind(Torrent{OwnerID: user.ID, Folder: folder}, "SELECT * from torrents where owner_id=$1 AND folder=$2", user.ID, folder)
+	return dbFind(Torrent{OwnerID: user.ID, Folder: folder}, torrentSelect("owner_id=$1 AND folder=$2"), user.ID, folder)
 }
 
 func TorrentGet(user User, id RecordID) (Cacheable, error) {
-	return dbFindOne(Torrent{OwnerID: user.ID, ID: id}, "SELECT * from torrents where id=$1 AND owner_id=$2", id, user.ID)
+	return dbFindOne(Torrent{OwnerID: user.ID, ID: id}, torrentSelect("id=$1 AND owner_id=$2"), id, user.ID)
+}
+
+func TorrentGetData(user User, id RecordID) ([]byte, error) {
+	var data []byte
+	err := services.db.QueryRow("SELECT data FROM torrents WHERE owner_id=$1 AND id=$2", user.ID, id).Scan(&data)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	} else if err != nil {
+		return nil, fmt.Errorf("unable to get data for torrent %v of %v: %v", id, user.ID, err)
+	}
+	return data, nil
+}
+
+func torrentSelect(where string) string {
+	return "SELECT id,folder,owner_id,info_hash,source_url,status FROM torrents WHERE " + where
 }
 
 func TorrentCreateFromURL(user User, folder string, url string) (Torrent, error) {

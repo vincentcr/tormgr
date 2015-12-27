@@ -32,8 +32,7 @@ func mustAuthenticate(access Access, h handler) handler {
 			w.Header().Set("WWW-Authenticate", "Basic realm=\"Please enter your username and password\"")
 			return NewHttpError(http.StatusUnauthorized)
 		}
-		h(c, w, r)
-		return nil
+		return h(c, w, r)
 	}
 }
 

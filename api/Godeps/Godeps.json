@@ -58,10 +58,6 @@
 			"ImportPath": "gopkg.in/redis.v3",
 			"Comment": "v3.1.4",
 			"Rev": "d36559f9ce085e75cccdb58e9a54e36621bfd4c1"
-		},
-		{
-			"ImportPath": "gopkg.in/validator.v2",
-			"Rev": "8e445b9dc14ab1a1a78cc1f712df991307173ee6"
 		}
 	]
 }

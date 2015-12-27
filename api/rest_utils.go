@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"gopkg.in/validator.v2"
+	"github.com/vincentcr/validator"
 )
 
 func parseAndValidate(r *http.Request, result interface{}) error {

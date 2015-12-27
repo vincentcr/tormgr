@@ -258,8 +258,8 @@ func routeTorrents(m *Mux) {
 
 type torrentCreateRequest struct {
 	Folder   string `validate:"nonzero,min=1"`
-	InfoHash string `validate:"nonzero,min=40"`
-	URL      string `validate:"nonzero"`
+	InfoHash string
+	URL      string
 }
 
 func parseTorrentCreateRequest(r *http.Request) (torrentCreateRequest, error) {
@@ -271,8 +271,8 @@ func parseTorrentCreateRequest(r *http.Request) (torrentCreateRequest, error) {
 }
 
 type torrentEditRequest struct {
-	Folder string `validate:"nonzero,min=1"`
-	Status string `validate:"nonzero,min=1"`
+	Folder string
+	Status string
 }
 
 func parseTorrentEditRequest(r *http.Request, torrent *Torrent) error {

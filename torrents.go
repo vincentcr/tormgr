@@ -25,6 +25,10 @@ type Torrent struct {
 	Status    TorrentStatus `json:"status"`
 }
 
+func (t Torrent) cacheHint() cacheHint {
+	return cacheHint{userID: t.OwnerID, table: "torrents", recordID: t.ID}
+}
+
 type TorrentStatus string
 
 const (
@@ -51,20 +55,16 @@ func (status *TorrentStatus) Scan(val interface{}) error {
 	return nil
 }
 
-func (t *Torrent) cacheHint() cacheHint {
-	return cacheHint{userID: t.OwnerID, table: "torrents", recordID: t.ID}
-}
-
 func TorrentGetAll(user User) (Cacheable, error) {
-	return dbFind(&Torrent{OwnerID: user.ID}, "SELECT id,name from torrents where owner_id=?", user.ID)
+	return dbFind(Torrent{OwnerID: user.ID}, "SELECT * from torrents where owner_id=$1", user.ID)
 }
 
 func TorrentGetByFolder(user User, folder string) (Cacheable, error) {
-	return dbFind(&Torrent{OwnerID: user.ID, Folder: folder}, "SELECT id,name from torrents where owner_id=? AND folder=?", user.ID, folder)
+	return dbFind(Torrent{OwnerID: user.ID, Folder: folder}, "SELECT * from torrents where owner_id=$1 AND folder=$2", user.ID, folder)
 }
 
 func TorrentGet(user User, id RecordID) (Cacheable, error) {
-	return dbFindOne(&Torrent{OwnerID: user.ID, ID: id}, "SELECT id,name from torrents where id=? AND owner_id=?", id, user.ID)
+	return dbFindOne(Torrent{OwnerID: user.ID, ID: id}, "SELECT * from torrents where id=$1 AND owner_id=$2", id, user.ID)
 }
 
 func TorrentCreateFromURL(user User, folder string, url string) (Torrent, error) {

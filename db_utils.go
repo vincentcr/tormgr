@@ -93,38 +93,51 @@ type queryExec func(dest interface{}, query string, args ...interface{}) error
 func dbFind(dest CacheHinter, query string, args ...interface{}) (Cacheable, error) {
 	t := reflect.TypeOf(dest)
 	slice := reflect.MakeSlice(reflect.SliceOf(t), 0, 0)
-	return dbFindExec(services.db.Select, slice, dest.cacheHint(), query, args)
+	slicePtr := reflect.New(slice.Type())
+	slicePtr.Elem().Set(slice)
+	return dbFindExec(services.db.Unsafe().Select, slicePtr.Interface(), dest.cacheHint(), query, args)
 }
 
 func dbFindOne(dest CacheHinter, query string, args ...interface{}) (Cacheable, error) {
-	cacheable, err := dbFindExec(services.db.Get, dest, dest.cacheHint(), query, args)
+	t := reflect.TypeOf(dest)
+	destPtr := reflect.New(t)
+	destPtr.Elem().Set(reflect.ValueOf(dest))
+
+	cacheable, err := dbFindExec(services.db.Unsafe().Get, destPtr.Interface(), dest.cacheHint(), query, args)
 	if err == sql.ErrNoRows {
 		return Cacheable{}, ErrNotFound
 	} else {
 		return cacheable, err
 	}
-
 }
 
 func dbFindExec(queryExec queryExec, dest interface{}, cacheHint cacheHint, query string, args []interface{}) (Cacheable, error) {
+
+	fail := func(err error, format string, fmtArgs ...interface{}) (Cacheable, error) {
+		action := fmt.Sprintf(format, fmtArgs...)
+		return Cacheable{}, fmt.Errorf("dbFind:%v failed for [%v, %#v] into %#v: %v", action, query, args, dest, err)
+	}
+
 	cacheKey := cacheMakeKeyFromQuery(query, args)
 	cacheable, err := cacheGet(cacheKey)
-	if err == nil || err != ErrNotFound {
-		return cacheable, err
+	if err == nil {
+		return cacheable, nil
+	} else if err != ErrNotFound {
+		return fail(err, "cacheGet[%v]", cacheKey)
 	}
 
 	err = queryExec(dest, query, args...)
 	if err != nil {
-		return Cacheable{}, err
+		return fail(err, "queryExec")
 	}
 	bytes, err := json.Marshal(dest)
 	if err != nil {
-		return Cacheable{}, fmt.Errorf("Unable to convert %#v to json: %v", dest, err)
+		return fail(err, "jsonify[%v]", dest)
 	}
 
 	etag, err := cacheSet(cacheKey, bytes, 1*time.Hour, cacheHint)
 	if err != nil {
-		return Cacheable{}, err
+		return fail(err, "cacheSet[%v]", string(bytes))
 	}
 
 	return Cacheable{bytes, etag}, nil

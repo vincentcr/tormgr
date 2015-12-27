@@ -98,7 +98,7 @@ func routeFolders(m *Mux) {
 
 	m.Get("/folders/:folderID", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		folderID := c.Env["folderID"].(string)
+		folderID := c.URLParams["folderID"]
 
 		cacheable, err := FolderGet(user, RecordID(folderID))
 		if err != nil {
@@ -121,7 +121,7 @@ func routeFolders(m *Mux) {
 
 	m.Delete("/folders/:folderID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		id := c.Env["folderID"].(string)
+		id := c.URLParams["folderID"]
 		folder := Folder{OwnerID: user.ID, ID: RecordID(id)}
 
 		if err := FolderDelete(folder); err != nil {
@@ -134,7 +134,7 @@ func routeFolders(m *Mux) {
 
 	m.Put("/folders/:folderID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		id := c.Env["folderID"].(string)
+		id := c.URLParams["folderID"]
 		folder := Folder{OwnerID: user.ID, ID: RecordID(id)}
 
 		if err := parseFolderRequest(r, &folder); err != nil {
@@ -178,7 +178,7 @@ func routeTorrents(m *Mux) {
 
 	m.Get("/torrents/:torrentID", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		torrentID := c.Env["torrentID"].(string)
+		torrentID := c.URLParams["torrentID"]
 
 		cacheable, err := TorrentGet(user, RecordID(torrentID))
 		if err != nil {
@@ -210,7 +210,7 @@ func routeTorrents(m *Mux) {
 
 	m.Delete("/torrents/:torrentID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		id := c.Env["torrentID"].(string)
+		id := c.URLParams["torrentID"]
 		torrent := Torrent{OwnerID: user.ID, ID: RecordID(id)}
 
 		if err := TorrentDelete(torrent); err != nil {
@@ -223,7 +223,7 @@ func routeTorrents(m *Mux) {
 
 	m.Put("/torrents/:torrentID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		id := c.Env["torrentID"].(string)
+		id := c.URLParams["torrentID"]
 		torrent := Torrent{OwnerID: user.ID, ID: RecordID(id)}
 
 		if err := parseTorrentEditRequest(r, &torrent); err != nil {

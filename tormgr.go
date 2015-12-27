@@ -13,6 +13,7 @@ func setupServer() {
 	m := NewMux("/api/1.0")
 	setupMiddlewares(m)
 	routeUsers(m)
+	routeFolders(m)
 	routeTorrents(m)
 	m.Serve()
 }
@@ -59,7 +60,7 @@ func routeUsers(m *Mux) {
 			"token": token,
 		}
 
-		return jsonify(res, w)
+		return jsonify(w, res)
 	})
 
 	m.Post("/users/tokens", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
@@ -80,33 +81,195 @@ func routeUsers(m *Mux) {
 			"token": token,
 		}
 
-		return jsonify(res, w)
+		return jsonify(w, res)
 	}))
 
 	m.Get("/users/me", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		return jsonify(user, w)
+		return jsonify(w, user)
 	}))
 }
 
-func routeTorrents(m *Mux) {
+func routeFolders(m *Mux) {
+
 	m.Get("/folders", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
+
 		cacheable, err := FolderGetAll(user)
 		if err != nil {
 			return err
 		}
+
 		return writeCacheable(r, w, "application/json", cacheable)
 	}))
 
-	// m.Post("/folders")
-	// m.Get("/folders/:folderID")
-	// m.Delete("/folders/:folderID")
-	// m.Put("/folders/:folderID")
-	//
-	// m.Get("/torrents")
-	// m.Post("/torrents")
-	// m.Get("/torrents/:torrentID")
-	// m.Put("/torrents/:torrentID")
-	// m.Delete("/torrents/:torrentID")
+	m.Get("/folders/:folderID", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		folderID := c.Env["folderID"].(string)
+
+		cacheable, err := FolderGet(user, RecordID(folderID))
+		if err != nil {
+			return err
+		}
+
+		return writeCacheable(r, w, "application/json", cacheable)
+	}))
+
+	m.Post("/folders", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		folder := Folder{OwnerID: user.ID}
+
+		if err := parseFolderRequest(r, &folder); err != nil {
+			return err
+		}
+
+		return jsonify(w, folder)
+	}))
+
+	m.Delete("/folders/:folderID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		id := c.Env["folderID"].(string)
+		folder := Folder{OwnerID: user.ID, ID: RecordID(id)}
+
+		if err := FolderDelete(folder); err != nil {
+			return err
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	}))
+
+	m.Put("/folders/:folderID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		id := c.Env["folderID"].(string)
+		folder := Folder{OwnerID: user.ID, ID: RecordID(id)}
+
+		if err := parseFolderRequest(r, &folder); err != nil {
+			return err
+		}
+
+		if err := FolderRename(folder); err != nil {
+			return err
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	}))
+
+}
+
+type folderRequest struct {
+	Name string `validate:"nonzero,min=1"`
+}
+
+func parseFolderRequest(r *http.Request, folder *Folder) error {
+	var folderReq folderRequest
+	if err := parseAndValidate(r, &folderReq); err != nil {
+		return err
+	}
+	folder.Name = folderReq.Name
+	return nil
+}
+
+func routeTorrents(m *Mux) {
+
+	m.Get("/torrents", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+
+		cacheable, err := TorrentGetAll(user)
+		if err != nil {
+			return err
+		}
+
+		return writeCacheable(r, w, "application/json", cacheable)
+	}))
+
+	m.Get("/torrents/:torrentID", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		torrentID := c.Env["torrentID"].(string)
+
+		cacheable, err := TorrentGet(user, RecordID(torrentID))
+		if err != nil {
+			return err
+		}
+
+		return writeCacheable(r, w, "application/json", cacheable)
+	}))
+
+	m.Post("/torrents", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		createReq, err := parseTorrentCreateRequest(r)
+		if err != nil {
+			return err
+		}
+
+		var torrent Torrent
+		if createReq.URL != "" {
+			torrent, err = TorrentCreateFromURL(user, createReq.Folder, createReq.URL)
+		} else if createReq.InfoHash != "" {
+			torrent, err = TorrentCreate(Torrent{OwnerID: user.ID, Folder: createReq.Folder, InfoHash: createReq.InfoHash})
+		}
+		if err != nil {
+			return err
+		}
+
+		return jsonify(w, torrent)
+	}))
+
+	m.Delete("/torrents/:torrentID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		id := c.Env["torrentID"].(string)
+		torrent := Torrent{OwnerID: user.ID, ID: RecordID(id)}
+
+		if err := TorrentDelete(torrent); err != nil {
+			return err
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	}))
+
+	m.Put("/torrents/:torrentID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		id := c.Env["torrentID"].(string)
+		torrent := Torrent{OwnerID: user.ID, ID: RecordID(id)}
+
+		if err := parseTorrentEditRequest(r, &torrent); err != nil {
+			return err
+		}
+
+		if err := TorrentUpdate(torrent); err != nil {
+			return err
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	}))
+}
+
+type torrentCreateRequest struct {
+	Folder   string `validate:"nonzero,min=1"`
+	InfoHash string `validate:"nonzero,min=40"`
+	URL      string `validate:"nonzero"`
+}
+
+func parseTorrentCreateRequest(r *http.Request) (torrentCreateRequest, error) {
+	var createReq torrentCreateRequest
+	if err := parseAndValidate(r, &createReq); err != nil {
+		return createReq, err
+	}
+	return createReq, nil
+}
+
+type torrentEditRequest struct {
+	Folder string `validate:"nonzero,min=1"`
+	Status string `validate:"nonzero,min=1"`
+}
+
+func parseTorrentEditRequest(r *http.Request, torrent *Torrent) error {
+	var editReq torrentEditRequest
+	if err := parseAndValidate(r, &editReq); err != nil {
+		return err
+	}
+	torrent.Status = TorrentStatus(editReq.Status)
+	torrent.Folder = editReq.Folder
+	return nil
 }

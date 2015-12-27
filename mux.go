@@ -162,8 +162,7 @@ func handleError(err error, w http.ResponseWriter) {
 		code = http.StatusBadRequest
 	} else {
 		code = http.StatusInternalServerError
-		stack := debug.Stack()
-		log.Printf("Internal error: %s\n%s\n", err, stack)
+		log.Printf("Internal error: %s\n", err)
 	}
 
 	if text == "" {
@@ -176,9 +175,11 @@ func handleError(err error, w http.ResponseWriter) {
 func panicRecovery(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 	defer func() {
 		if reason := recover(); reason != nil {
+			stack := debug.Stack()
+			log.Printf("PANIC: %v\n-----\n%v\n-----\n", reason, stack)
 			err, ok := reason.(error)
 			if !ok {
-				err = fmt.Errorf("panic! %v", err)
+				err = fmt.Errorf("panic! %v", reason)
 			}
 			handleError(err, w)
 		}

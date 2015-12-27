@@ -17,7 +17,7 @@ var (
 
 type Torrent struct {
 	ID        RecordID      `json:"id"`
-	OwnerID   RecordID      `json:"omit" db:"owner_id"`
+	OwnerID   RecordID      `json:"-" db:"owner_id"`
 	Folder    string        `json:"folder"`
 	InfoHash  string        `json:"infoHash" db:"info_hash"`
 	Data      []byte        `json:"data,omitifempty"`

@@ -3,7 +3,7 @@ package main
 type Folder struct {
 	ID      RecordID `json:"id"`
 	Name    string   `json:"name"`
-	OwnerID RecordID `json:"omit" db:"owner_id" `
+	OwnerID RecordID `json:"-" db:"owner_id" `
 }
 
 func (f *Folder) cacheHint() cacheHint {

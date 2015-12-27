@@ -42,6 +42,22 @@ type tokenOptions struct {
 	secretSize int
 }
 
+func (access *Access) Parse(str string) error {
+	switch str {
+	case "Read":
+		*access = AccessRead
+	case "Write":
+		*access = AccessWrite
+	case "":
+		fallthrough
+	case "ReadWrite":
+		*access = AccessReadWrite
+	default:
+		return fmt.Errorf("Invalid access string %s", str)
+	}
+	return nil
+}
+
 func AccessTokenCreateFull(user User) (string, error) {
 	return AccessTokenCreate(user, AccessReadWrite)
 }

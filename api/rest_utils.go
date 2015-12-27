@@ -24,7 +24,7 @@ func parseBody(r *http.Request, result interface{}) error {
 	return decoder.Decode(result)
 }
 
-func jsonify(result interface{}, w http.ResponseWriter) error {
+func jsonify(w http.ResponseWriter, result interface{}) error {
 	bytes, err := json.Marshal(result)
 	if err != nil {
 		return err

@@ -29,6 +29,12 @@ type UserRequest struct {
 }
 
 func routeUsers(m *Mux) {
+	m.Get("/", func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		return jsonify(w, struct {
+			AppName string
+			Version string
+		}{"tormgr", "1.0"})
+	})
 
 	m.Post("/users", func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		var userReq UserRequest

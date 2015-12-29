@@ -51,12 +51,15 @@ func TorrentGet(user User, id RecordID) (Cacheable, error) {
 
 func TorrentGetData(user User, id RecordID) ([]byte, error) {
 	var data []byte
-	err := services.db.QueryRow("SELECT data FROM torrents WHERE owner_id=$1 AND id=$2", user.ID, id).Scan(&data)
+	err := services.db.
+		QueryRow("SELECT data FROM torrents WHERE owner_id=$1 AND id=$2", user.ID, id).
+		Scan(&data)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	} else if err != nil {
 		return nil, fmt.Errorf("unable to get data for torrent %v of %v: %v", id, user.ID, err)
 	}
+
 	return data, nil
 }
 

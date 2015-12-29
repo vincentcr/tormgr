@@ -6,16 +6,16 @@ type Folder struct {
 	OwnerID RecordID `json:"-" db:"owner_id" `
 }
 
-func (f Folder) cacheHint() cacheHint {
-	return cacheHint{userID: f.OwnerID, table: "folders", recordID: f.ID}
-}
-
 func FolderGetAll(user User) (Cacheable, error) {
 	return dbFind(Folder{OwnerID: user.ID}, "SELECT id,name from folders where owner_id=$1", user.ID)
 }
 
-func FolderGet(user User, id RecordID) (Cacheable, error) {
+func FolderGetByID(user User, id RecordID) (Cacheable, error) {
 	return dbFindOne(Folder{OwnerID: user.ID, ID: id}, "SELECT * from folders where owner_id=$1 AND id=$2", user.ID, id)
+}
+
+func FolderGetByName(user User, name string) (Cacheable, error) {
+	return dbFindOne(Folder{OwnerID: user.ID, Name: name}, "SELECT * from folders where owner_id=$1 AND name=$2", user.ID, name)
 }
 
 func FolderCreate(user User, name string) (Folder, error) {
@@ -31,4 +31,9 @@ func FolderRename(folder Folder) error {
 
 func FolderDelete(folder Folder) error {
 	return dbExecOnRecord("delete", "DELETE FROM folders where id = :id AND owner_id = :owner_id", &folder)
+}
+
+func (f Folder) cacheHint() cacheHint {
+	params := map[string]interface{}{"ID": f.ID, "Name": f.Name}
+	return cacheHintMake("folders", f.OwnerID, params)
 }

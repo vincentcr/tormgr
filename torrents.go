@@ -28,10 +28,6 @@ type Torrent struct {
 	Status    TorrentStatus `json:"status,omitempty"`
 }
 
-func (t Torrent) cacheHint() cacheHint {
-	return cacheHint{userID: t.OwnerID, table: "torrents", recordID: t.ID}
-}
-
 type TorrentStatus string
 
 const (
@@ -40,23 +36,6 @@ const (
 	TorrentStatusDownloaded  TorrentStatus = "downloaded"
 	TorrentStatusFailed      TorrentStatus = "failed"
 )
-
-func (status TorrentStatus) String() string {
-	return string(status)
-}
-
-func (status TorrentStatus) Value() (driver.Value, error) {
-	return string(status), nil
-}
-
-func (status *TorrentStatus) Scan(val interface{}) error {
-	bytes, ok := val.([]byte)
-	if !ok {
-		return fmt.Errorf("Cast error: expected TorrentStatus bytes, got %v", val)
-	}
-	*status = TorrentStatus(string(bytes))
-	return nil
-}
 
 func TorrentGetAll(user User) (Cacheable, error) {
 	return dbFind(Torrent{OwnerID: user.ID}, torrentSelect("owner_id=$1"), user.ID)
@@ -182,4 +161,27 @@ func TorrentUpdate(torrent Torrent) error {
 
 func TorrentDelete(torrent Torrent) error {
 	return dbExecOnRecord("delete", "DELETE FROM torrents where id = :id AND owner_id = :owner_id", &torrent)
+}
+
+func (t Torrent) cacheHint() cacheHint {
+	params := map[string]interface{}{"ID": t.ID, "Folder": t.Folder, "InfoHash": t.InfoHash, "Status": t.Status}
+	return cacheHintMake("torrents", t.OwnerID, params)
+
+}
+
+func (status TorrentStatus) String() string {
+	return string(status)
+}
+
+func (status TorrentStatus) Value() (driver.Value, error) {
+	return string(status), nil
+}
+
+func (status *TorrentStatus) Scan(val interface{}) error {
+	bytes, ok := val.([]byte)
+	if !ok {
+		return fmt.Errorf("Cast error: expected TorrentStatus bytes, got %v", val)
+	}
+	*status = TorrentStatus(string(bytes))
+	return nil
 }

@@ -47,11 +47,6 @@ func NewMux(rootUrl string) *Mux {
 	return &Mux{root: root}
 }
 
-func (mux *Mux) Serve() {
-	goji.Serve()
-	mux.Use(panicRecovery)
-}
-
 func (mux *Mux) Use(m middleware) {
 	gojiMiddleware := func(c *web.C, h http.Handler) http.Handler {
 

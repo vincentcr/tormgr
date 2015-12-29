@@ -1,17 +1,20 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/zenazn/goji"
+)
 
 func setupServer() {
-	m := NewMux("/api/1.0")
-	setupMiddlewares(m)
-	routeUsers(m)
-	routeFolders(m)
-	routeTorrents(m)
-	m.Serve()
+	api := NewMux("/api/1.0")
+	setupMiddlewares(api)
+	setupRoutes(api)
+	goji.Serve()
 }
 
 func setupMiddlewares(m *Mux) {
+	m.Use(panicRecovery)
 	m.Use(cors)
 	m.Use(authenticate)
 }
@@ -23,12 +26,7 @@ func cors(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-type UserRequest struct {
-	Email    string `validate:"nonzero,regexp=^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[[:alnum:]]{2,}$"`
-	Password string `validate:"nonzero,min=6"`
-}
-
-func routeUsers(m *Mux) {
+func setupRoutes(m *Mux) {
 	m.Get("/", func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		return jsonify(w, struct {
 			AppName string
@@ -37,7 +35,7 @@ func routeUsers(m *Mux) {
 	})
 
 	m.Post("/users", func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
-		var userReq UserRequest
+		var userReq userRequest
 		if err := parseAndValidate(r, &userReq); err != nil {
 			return err
 		}
@@ -87,9 +85,6 @@ func routeUsers(m *Mux) {
 		user := c.MustGetUser()
 		return jsonify(w, user)
 	}))
-}
-
-func routeFolders(m *Mux) {
 
 	m.Get("/folders", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
@@ -106,7 +101,7 @@ func routeFolders(m *Mux) {
 		user := c.MustGetUser()
 		folderID := c.URLParams["folderID"]
 
-		cacheable, err := FolderGet(user, RecordID(folderID))
+		cacheable, err := FolderGetByID(user, RecordID(folderID))
 		if err != nil {
 			return err
 		}
@@ -140,8 +135,8 @@ func routeFolders(m *Mux) {
 
 	m.Put("/folders/:folderID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		id := c.URLParams["folderID"]
-		folder := Folder{OwnerID: user.ID, ID: RecordID(id)}
+		folderID := c.URLParams["folderID"]
+		folder := Folder{OwnerID: user.ID, ID: RecordID(folderID)}
 
 		if err := parseFolderRequest(r, &folder); err != nil {
 			return err
@@ -153,23 +148,6 @@ func routeFolders(m *Mux) {
 		w.WriteHeader(http.StatusNoContent)
 		return nil
 	}))
-
-}
-
-type folderRequest struct {
-	Name string `validate:"nonzero,min=1"`
-}
-
-func parseFolderRequest(r *http.Request, folder *Folder) error {
-	var folderReq folderRequest
-	if err := parseAndValidate(r, &folderReq); err != nil {
-		return err
-	}
-	folder.Name = folderReq.Name
-	return nil
-}
-
-func routeTorrents(m *Mux) {
 
 	m.Get("/torrents", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
@@ -254,6 +232,24 @@ func routeTorrents(m *Mux) {
 		w.WriteHeader(http.StatusNoContent)
 		return nil
 	}))
+}
+
+type userRequest struct {
+	Email    string `validate:"nonzero,regexp=^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[[:alnum:]]{2,}$"`
+	Password string `validate:"nonzero,min=6"`
+}
+
+type folderRequest struct {
+	Name string `validate:"nonzero,min=1"`
+}
+
+func parseFolderRequest(r *http.Request, folder *Folder) error {
+	var folderReq folderRequest
+	if err := parseAndValidate(r, &folderReq); err != nil {
+		return err
+	}
+	folder.Name = folderReq.Name
+	return nil
 }
 
 type torrentCreateRequest struct {

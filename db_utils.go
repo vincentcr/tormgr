@@ -50,21 +50,32 @@ func (id *RecordID) Parse(str string) {
 	*id = RecordID(strings.ToLower(strings.Replace(str, "-", "", -1)))
 }
 
-func dbExecOnRecord(desc, query string, record CacheHinter) error {
+func dbExecOnRecord(query string, record CacheHinter) error {
 	r, err := services.db.NamedExec(query, record)
+	return dbFinalizeExec(query, r, err, record.cacheHint())
+}
+
+func dbFinalizeExec(query string, r sql.Result, err error, cacheHint cacheHint) error {
+	fail := func(err error) error {
+		desc := query
+		if len(query) > 64 {
+			desc = desc[:64] + " [...]"
+		}
+		return fmt.Errorf("db: exec '%v' failed: %v", desc, err)
+	}
 
 	if dbIsUniqueError(err) {
 		return ErrUniqueViolation
 	} else if err != nil {
-		return fmt.Errorf("db:%s failed on %v: %v", record, err)
+		return fail(err)
 	}
 
 	if err = dbCheckRowsAffected(r, 1); err != nil {
-		return fmt.Errorf("db:%s failed on %v: %v", record, err)
+		return fail(err)
 	}
 
-	if err := cacheInvalidate(record.cacheHint()); err != nil {
-		return fmt.Errorf("db:%s failed on %v: %v", record, err)
+	if err := cacheInvalidate(cacheHint); err != nil {
+		return fail(err)
 	}
 
 	return nil

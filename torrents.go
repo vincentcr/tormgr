@@ -83,7 +83,7 @@ func TorrentCreateFromURL(user User, folder string, url string) (Torrent, error)
 }
 
 func TorrentCreate(torrent Torrent) (Torrent, error) {
-	err := dbExecOnRecord("insert", `
+	err := dbExecOnRecord(`
 			INSERT INTO torrents(id, owner_id, folder, info_hash, data, source_url)
 			VALUES(:id, :owner_id, :folder, :info_hash, :data, :source_url)
 		`, &torrent)
@@ -159,11 +159,11 @@ func TorrentUpdate(torrent Torrent) error {
 		sets += "folder = :folder"
 	}
 
-	return dbExecOnRecord("update", "UPDATE torrents SET "+sets+" WHERE id = :id AND owner_id = :owner_id", &torrent)
+	return dbExecOnRecord("UPDATE torrents SET "+sets+" WHERE id = :id AND owner_id = :owner_id", &torrent)
 }
 
 func TorrentDelete(torrent Torrent) error {
-	return dbExecOnRecord("delete", "DELETE FROM torrents where id = :id AND owner_id = :owner_id", &torrent)
+	return dbExecOnRecord("DELETE FROM torrents where id = :id AND owner_id = :owner_id", &torrent)
 }
 
 func (t Torrent) cacheHint() cacheHint {

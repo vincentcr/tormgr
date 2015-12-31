@@ -18,19 +18,23 @@ func FolderGetByName(user User, name string) (Cacheable, error) {
 	return dbFindOne(Folder{OwnerID: user.ID, Name: name}, "SELECT * from folders where owner_id=$1 AND name=$2", user.ID, name)
 }
 
+func FolderGet(f Folder) (Cacheable, error) {
+	return dbFindOne(f, "SELECT * from folders WHERE owner_id=$1 AND (id=$2 OR name=$2)", f.OwnerID, f.ID)
+}
+
 func FolderCreate(user User, name string) (Folder, error) {
-	folder := Folder{ID: newID(), OwnerID: user.ID, Name: name}
+	f := Folder{ID: newID(), OwnerID: user.ID, Name: name}
 
-	err := dbExecOnRecord("insert", "INSERT INTO folders(id, owner_id,name) VALUES(:id, :owner_id, :name)", &folder)
-	return folder, err
+	err := dbExecOnRecord("INSERT INTO folders(id, owner_id,name) VALUES(:id, :owner_id, :name)", &f)
+	return f, err
 }
 
-func FolderRename(folder Folder) error {
-	return dbExecOnRecord("update", "UPDATE folders SET name = :name WHERE id = :id AND owner_id = :owner_id", &folder)
+func FolderRename(f Folder) error {
+	return dbExecOnRecord("UPDATE folders SET name=:name WHERE (name=:id OR id=:id) AND owner_id=:owner_id", &f)
 }
 
-func FolderDelete(folder Folder) error {
-	return dbExecOnRecord("delete", "DELETE FROM folders where id = :id AND owner_id = :owner_id", &folder)
+func FolderDelete(f Folder) error {
+	return dbExecOnRecord("DELETE FROM folders WHERE (name=:id OR id=:id) AND owner_id=:owner_id", &f)
 }
 
 func (f Folder) cacheHint() cacheHint {

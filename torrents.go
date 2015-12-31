@@ -8,24 +8,35 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"path"
 	"regexp"
 	"strings"
 
+	"github.com/pivotal-golang/bytefmt"
 	"github.com/zeebo/bencode"
 )
 
 var (
-	torrentMagnetURIPattern = regexp.MustCompile("^magnet:?.*\\bxt=urn:btih:([a-fA-F-0-9]+).*")
+	torrentMagnetInfoHashPattern = regexp.MustCompile("^urn:btih:([a-fA-F-0-9]+).*")
 )
 
 type Torrent struct {
 	ID        RecordID      `json:"id"`
 	OwnerID   RecordID      `json:"-" db:"owner_id"`
 	Folder    string        `json:"folder"`
+	Title     string        `json:"title"`
+	Trackers  []string      `json:"trackers"`
 	InfoHash  string        `json:"infoHash" db:"info_hash"`
 	Data      []byte        `json:"-"`
 	SourceURL string        `json:"sourceURL,omitempty" db:"source_url"`
 	Status    TorrentStatus `json:"status,omitempty"`
+}
+
+type TorrentFile struct {
+	Path   string        `json:"path"`
+	Length uint64        `json:"length"`
+	Status TorrentStatus `json:"status,omitempty"`
 }
 
 type TorrentStatus string
@@ -64,22 +75,11 @@ func TorrentGetData(user User, id RecordID) ([]byte, error) {
 }
 
 func torrentSelect(where string) string {
-	return "SELECT id,folder,owner_id,info_hash,source_url,status FROM torrents WHERE " + where
+	return "SELECT id,folder,title,owner_id,info_hash,source_url,status FROM torrents WHERE " + where
 }
 
-func TorrentCreateFromURL(user User, folder string, url string) (Torrent, error) {
-	var data []byte
-	infoHash, ok := torrentInfoHashFromMagnetURL(url)
-	if !ok {
-		var err error
-		data, infoHash, err = torrentDataFromHTTPURL(url)
-		if err != nil {
-			return Torrent{}, err
-		}
-	}
-
-	torrent := Torrent{ID: newID(), OwnerID: user.ID, Folder: folder, InfoHash: infoHash, Data: data, SourceURL: url}
-	return TorrentCreate(torrent)
+func TorrentCreateFromInfoHash(user User, folder string, infoHash string) (Torrent, error) {
+	return TorrentCreate(Torrent{OwnerID: user.ID, Folder: folder, InfoHash: infoHash})
 }
 
 func TorrentCreate(torrent Torrent) (Torrent, error) {
@@ -91,60 +91,144 @@ func TorrentCreate(torrent Torrent) (Torrent, error) {
 	return torrent, err
 }
 
-func torrentDataFromHTTPURL(url string) ([]byte, string, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func TorrentCreateFromURL(user User, folder string, urlStr string) (Torrent, error) {
+	u, err := url.Parse(urlStr)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create request for %v: %v", url, err)
+		return Torrent{}, fmt.Errorf("Invalid url %v: %v", urlStr, err)
 	}
-	req.Header.Add("User-Agent", "tormgr/1.0") //some torrent servers do U/A filtering
+
+	t := Torrent{OwnerID: user.ID, Folder: folder}
+	if u.Scheme == "magnet" {
+		err = torrentFromMagnetURL(u, &t)
+	} else {
+		err = torrentFromHTTPURL(u, &t)
+	}
+
+	if err != nil {
+		return Torrent{}, err
+	}
+
+	return TorrentCreate(t)
+}
+
+func torrentFromMagnetURL(u *url.URL, t *Torrent) error {
+	q := u.Query()
+	match := torrentMagnetInfoHashPattern.FindStringSubmatch(q.Get("xt"))
+	if len(match) == 0 {
+		return fmt.Errorf("invalid info hash in magnet url: %v", u)
+	}
+
+	t.InfoHash = match[1]
+	t.Title = q.Get("dn")
+	t.Trackers = q["tr"]
+	return nil
+}
+
+func torrentFromHTTPURL(u *url.URL, t *Torrent) error {
+	data, err := torrentFetchData(u)
+	if err != nil {
+		return err
+	}
+	t.Data = data
+
+	err = torrentParse(data, t)
+	if err != nil {
+		return fmt.Errorf("invalid torrent data at %v: %v", u, err)
+	}
+
+	return nil
+}
+
+func torrentFetchData(u *url.URL) ([]byte, error) {
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request for %v: %v", u, err)
+	}
+	req.Header.Add("User-Agent", "tormgr/1.0") //some torrent servers do U/A filtering and don't like go's default
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create torrent from source url %v: %v", url, err)
+		return nil, fmt.Errorf("failed to create torrent from source url %v: %v", u, err)
 	}
 	defer res.Body.Close()
 
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to read data at %v: %v", url, err)
+		return nil, fmt.Errorf("failed to read data at %v: %v", u, err)
 	}
-
-	infoHash, err := torrentComputeInfoHash(data)
-	if err != nil {
-		return nil, "", fmt.Errorf("invalid torrent data at %v: %v", url, err)
-	}
-
-	return data, infoHash, err
+	return data, nil
 }
 
-func torrentComputeInfoHash(data []byte) (string, error) {
-	var bdict map[string]interface{}
+func torrentParse(data []byte, t *Torrent) error {
+	var torrentData struct {
+		Info struct {
+			Name   string
+			Length uint64
+			Files  []struct {
+				Path   string
+				Length uint64
+			}
+		}
+	}
 
-	err := bencode.NewDecoder(bytes.NewBuffer(data)).Decode(&bdict)
+	err := bencode.NewDecoder(bytes.NewBuffer(data)).Decode(&torrentData)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse as bencoded dictionary: %v", err)
+		return fmt.Errorf("torrentParse: failed to parse as bencoded dictionary: %v", err)
+	}
+	info := torrentData.Info
+
+	var files []TorrentFile
+
+	if info.Name != "" { //single-file
+		files = []TorrentFile{TorrentFile{Path: info.Name, Length: info.Length}}
+	} else { //multi-file
+		l := len(info.Files)
+		if l == 0 {
+			return fmt.Errorf("0 file in torrent %#v", torrentData)
+		}
+		files = make([]TorrentFile, l)
+		root := info.Name
+		for i, file := range info.Files {
+			path := path.Join(root, file.Path)
+			files[i] = TorrentFile{Path: path, Length: file.Length}
+		}
 	}
 
-	info, ok := bdict["info"]
-	if !ok {
-		return "", fmt.Errorf("info section not found in: %#v", data)
+	t.Title = torrentTitleFromFiles(files)
+
+	infoHash, err := torrentComputeInfoHash(info)
+	if err != nil {
+		return err
 	}
+	t.InfoHash = infoHash
+
+	return nil
+}
+
+func torrentTitleFromFiles(files []TorrentFile) string {
+	var title string
+	if len(files) == 1 {
+		title = fmt.Sprintf("%v (%v)", files[0].Path, bytefmt.ByteSize(files[0].Length))
+	} else {
+		root := path.Dir(files[0].Path)
+		var totLen uint64 = 0
+		for _, f := range files {
+			totLen += f.Length
+		}
+		title = fmt.Sprintf("%v (%d files, %v)", root, len(files), bytefmt.ByteSize(totLen))
+	}
+
+	return title
+}
+
+func torrentComputeInfoHash(info interface{}) (string, error) {
 	var b bytes.Buffer
-	err = bencode.NewEncoder(&b).Encode(info)
+	err := bencode.NewEncoder(&b).Encode(info)
 	if err != nil {
 		return "", fmt.Errorf("unable to bencode %#v: %v", info, err)
 	}
 
 	infoHash := strings.ToUpper(fmt.Sprintf("%x", sha1.Sum(b.Bytes())))
 	return infoHash, nil
-}
-
-func torrentInfoHashFromMagnetURL(magnetURL string) (string, bool) {
-	match := torrentMagnetURIPattern.FindStringSubmatch(magnetURL)
-	if len(match) > 0 {
-		return match[1], true
-	} else {
-		return "", false
-	}
 }
 
 func TorrentUpdate(torrent Torrent) error {

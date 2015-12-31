@@ -2,12 +2,15 @@ package main
 
 import (
 	"net/http"
+	"regexp"
 
 	"github.com/zenazn/goji"
 )
 
+const apiVersion = "1.0"
+
 func setupServer() {
-	api := NewMux("/api/1.0")
+	api := NewMux("/api/" + apiVersion)
 	setupMiddlewares(api)
 	setupRoutes(api)
 	goji.Serve()
@@ -27,12 +30,15 @@ func cors(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 }
 
 func setupRoutes(m *Mux) {
+
 	m.Get("/", func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		return jsonify(w, struct {
 			AppName string
 			Version string
-		}{"tormgr", "1.0"})
+		}{"tormgr", apiVersion})
 	})
+
+	//////////// USERS ////////////
 
 	m.Post("/users", func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		var userReq userRequest
@@ -86,6 +92,8 @@ func setupRoutes(m *Mux) {
 		return jsonify(w, user)
 	}))
 
+	//////////// FOLDERS ////////////
+
 	m.Get("/folders", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
 
@@ -97,23 +105,15 @@ func setupRoutes(m *Mux) {
 		return writeCacheable(r, w, "application/json", cacheable)
 	}))
 
-	m.Get("/folders/:folderID", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+	m.Post("/folders", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		folderID := c.URLParams["folderID"]
-
-		cacheable, err := FolderGetByID(user, RecordID(folderID))
-		if err != nil {
+		var folderReq folderRequest
+		if err := parseAndValidate(r, &folderReq); err != nil {
 			return err
 		}
 
-		return writeCacheable(r, w, "application/json", cacheable)
-	}))
-
-	m.Post("/folders", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
-		user := c.MustGetUser()
-		folder := Folder{OwnerID: user.ID}
-
-		if err := parseFolderRequest(r, &folder); err != nil {
+		folder, err := FolderCreate(user, folderReq.Name)
+		if err != nil {
 			return err
 		}
 
@@ -135,18 +135,44 @@ func setupRoutes(m *Mux) {
 
 	m.Put("/folders/:folderID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		folderID := c.URLParams["folderID"]
-		folder := Folder{OwnerID: user.ID, ID: RecordID(folderID)}
-
-		if err := parseFolderRequest(r, &folder); err != nil {
+		var folderReq folderRequest
+		if err := parseAndValidate(r, &folderReq); err != nil {
 			return err
 		}
+
+		folderID := c.URLParams["folderID"]
+		folder := Folder{OwnerID: user.ID, ID: RecordID(folderID), Name: folderReq.Name}
 
 		if err := FolderRename(folder); err != nil {
 			return err
 		}
 		w.WriteHeader(http.StatusNoContent)
 		return nil
+	}))
+
+	m.Get("/folders/:folderName", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+		folderName := c.URLParams["folderName"]
+
+		cacheable, err := TorrentGetByFolder(user, folderName)
+		if err != nil {
+			return err
+		}
+
+		return writeCacheable(r, w, "application/json", cacheable)
+	}))
+
+	//////////// TORRENTS ////////////
+
+	m.Get("/folders/:folder/torrents", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
+		user := c.MustGetUser()
+
+		cacheable, err := TorrentGetByFolder(user, c.URLParams["folder"])
+		if err != nil {
+			return err
+		}
+
+		return writeCacheable(r, w, "application/json", cacheable)
 	}))
 
 	m.Get("/torrents", mustAuthenticateR(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
@@ -186,17 +212,22 @@ func setupRoutes(m *Mux) {
 
 	m.Post("/torrents", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		createReq, err := parseTorrentCreateRequest(r)
-		if err != nil {
+
+		var createReq torrentCreateRequest
+		if err := parseAndValidate(r, &createReq); err != nil {
 			return err
 		}
 
+		var err error
 		var torrent Torrent
-		if createReq.URL != "" {
-			torrent, err = TorrentCreateFromURL(user, createReq.Folder, createReq.URL)
-		} else if createReq.InfoHash != "" {
-			torrent, err = TorrentCreate(Torrent{OwnerID: user.ID, Folder: createReq.Folder, InfoHash: createReq.InfoHash})
+		if torrentInfoHashPattern.MatchString(createReq.URLOrInfoHash) {
+			torrent, err = TorrentCreateFromInfoHash(user, createReq.Folder, createReq.URLOrInfoHash)
+		} else if torrentURLPattern.MatchString(createReq.URLOrInfoHash) {
+			torrent, err = TorrentCreateFromURL(user, createReq.Folder, createReq.URLOrInfoHash)
+		} else {
+			return NewHttpErrorWithText(http.StatusBadRequest, "urlOrInfoHash must be either a magnet or http url, or a info-hash")
 		}
+
 		if err != nil {
 			return err
 		}
@@ -219,11 +250,17 @@ func setupRoutes(m *Mux) {
 
 	m.Put("/torrents/:torrentID", mustAuthenticateRW(func(c *TMContext, w http.ResponseWriter, r *http.Request) error {
 		user := c.MustGetUser()
-		id := c.URLParams["torrentID"]
-		torrent := Torrent{OwnerID: user.ID, ID: RecordID(id)}
 
-		if err := parseTorrentEditRequest(r, &torrent); err != nil {
+		var editReq torrentEditRequest
+		if err := parseAndValidate(r, &editReq); err != nil {
 			return err
+		}
+
+		torrent := Torrent{
+			ID:      RecordID(c.URLParams["torrentID"]),
+			OwnerID: user.ID,
+			Status:  TorrentStatus(editReq.Status),
+			Folder:  editReq.Folder,
 		}
 
 		if err := TorrentUpdate(torrent); err != nil {
@@ -243,40 +280,17 @@ type folderRequest struct {
 	Name string `validate:"nonzero,min=1"`
 }
 
-func parseFolderRequest(r *http.Request, folder *Folder) error {
-	var folderReq folderRequest
-	if err := parseAndValidate(r, &folderReq); err != nil {
-		return err
-	}
-	folder.Name = folderReq.Name
-	return nil
-}
+var (
+	torrentURLPattern      = regexp.MustCompile("^(magnet|https?):.*")
+	torrentInfoHashPattern = regexp.MustCompile("^[a-fA-F-0-9]{40}$")
+)
 
 type torrentCreateRequest struct {
-	Folder   string `validate:"nonzero,min=1"`
-	InfoHash string
-	URL      string
-}
-
-func parseTorrentCreateRequest(r *http.Request) (torrentCreateRequest, error) {
-	var createReq torrentCreateRequest
-	if err := parseAndValidate(r, &createReq); err != nil {
-		return createReq, err
-	}
-	return createReq, nil
+	Folder        string `validate:"nonzero,min=1"`
+	URLOrInfoHash string `validate:"nonzero,min=1"`
 }
 
 type torrentEditRequest struct {
 	Folder string
 	Status string
-}
-
-func parseTorrentEditRequest(r *http.Request, torrent *Torrent) error {
-	var editReq torrentEditRequest
-	if err := parseAndValidate(r, &editReq); err != nil {
-		return err
-	}
-	torrent.Status = TorrentStatus(editReq.Status)
-	torrent.Folder = editReq.Folder
-	return nil
 }

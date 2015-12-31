@@ -7,15 +7,15 @@ type Folder struct {
 }
 
 func FolderGetAll(user User) (Cacheable, error) {
-	return dbFind(Folder{OwnerID: user.ID}, "SELECT id,name from folders where owner_id=$1", user.ID)
+	return dbFind(Folder{OwnerID: user.ID}, "SELECT id,name from folders WHERE owner_id=$1", user.ID)
 }
 
 func FolderGetByID(user User, id RecordID) (Cacheable, error) {
-	return dbFindOne(Folder{OwnerID: user.ID, ID: id}, "SELECT * from folders where owner_id=$1 AND id=$2", user.ID, id)
+	return dbFindOne(Folder{OwnerID: user.ID, ID: id}, "SELECT * from folders WHERE owner_id=$1 AND id=$2", user.ID, id)
 }
 
 func FolderGetByName(user User, name string) (Cacheable, error) {
-	return dbFindOne(Folder{OwnerID: user.ID, Name: name}, "SELECT * from folders where owner_id=$1 AND name=$2", user.ID, name)
+	return dbFindOne(Folder{OwnerID: user.ID, Name: name}, "SELECT * from folders WHERE owner_id=$1 AND name=$2", user.ID, name)
 }
 
 func FolderGet(f Folder) (Cacheable, error) {

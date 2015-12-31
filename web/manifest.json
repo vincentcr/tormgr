@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+
+  "name": "myfolders",
+  "description": "Add links to personal RSS folders",
+  "version": "1.0",
+  "background": {
+    "scripts": ["assets/chromebg.js"]
+  },
+  "icons": { "16": "icon-16.png",
+           "48": "icon-48.png",
+          "128": "icon-128.png" },
+  "browser_action": {
+    "default_icon": "icon-128.png",
+    "default_popup": "popup.html"
+  },
+  "options_page": "popup.html",
+  "permissions": [
+    "contextMenus",
+    "http://192.168.99.100:3456/api/v1",
+    "http://127.0.0.1:3456/api/v1",
+    "http://api.myfolders.polymatix.svc.tutum.io/api/v1"
+  ]
+}

@@ -1,0 +1,239 @@
+body {
+  /*padding-top: 70px;*/
+  min-width: 357px;
+  overflow-x: hidden;
+}
+
+img {
+  margin: 5px;
+  border: 2px solid black;
+  vertical-align: middle;
+  width: 75px;
+  height: 75px;
+}
+
+input:invalid {
+  border: 1px solid #9f3131;
+}
+
+.feed .feed-title h2 input[type='text']:invalid {
+  border: 1px solid #9f3131;
+}
+
+#in-progress {
+  display: none;
+}
+#in-progress.active {
+  position: fixed;
+  display: block;
+  height: 10em;
+  width: 10em;
+  overflow: show;
+  margin: auto;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+
+@-moz-keyframes throbber-loader {
+  0% {
+    background: #dde2e7;
+  }
+  10% {
+    background: #6b9dc8;
+  }
+  40% {
+    background: #dde2e7;
+  }
+}
+@-webkit-keyframes throbber-loader {
+  0% {
+    background: #dde2e7;
+  }
+  10% {
+    background: #6b9dc8;
+  }
+  40% {
+    background: #dde2e7;
+  }
+}
+@keyframes throbber-loader {
+  0% {
+    background: #dde2e7;
+  }
+  10% {
+    background: #6b9dc8;
+  }
+  40% {
+    background: #dde2e7;
+  }
+}
+/* :not(:required) hides these rules from IE9 and below */
+.throbber-loader:not(:required) {
+  -moz-animation: throbber-loader 2000ms 300ms infinite ease-out;
+  -webkit-animation: throbber-loader 2000ms 300ms infinite ease-out;
+  animation: throbber-loader 2000ms 300ms infinite ease-out;
+  background: #dde2e7;
+  display: inline-block;
+  position: relative;
+  text-indent: -9999px;
+  width: 0.9em;
+  height: 1.5em;
+  margin: 0 1.6em;
+}
+.throbber-loader:not(:required):before, .throbber-loader:not(:required):after {
+  background: #dde2e7;
+  content: '\x200B';
+  display: inline-block;
+  width: 0.9em;
+  height: 1.5em;
+  position: absolute;
+  top: 0;
+}
+.throbber-loader:not(:required):before {
+  -moz-animation: throbber-loader 2000ms 150ms infinite ease-out;
+  -webkit-animation: throbber-loader 2000ms 150ms infinite ease-out;
+  animation: throbber-loader 2000ms 150ms infinite ease-out;
+  left: -1.6em;
+}
+.throbber-loader:not(:required):after {
+  -moz-animation: throbber-loader 2000ms 450ms infinite ease-out;
+  -webkit-animation: throbber-loader 2000ms 450ms infinite ease-out;
+  animation: throbber-loader 2000ms 450ms infinite ease-out;
+  right: -1.6em;
+}
+
+.sidebar {
+  display: none;
+}
+@media (min-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+    display: block;
+    padding: 20px;
+    overflow-x: hidden;
+    overflow-y: auto; /* Scrollable contents if viewport is shorter than content. */
+    background-color: #f5f5f5;
+    border-right: 1px solid #eee;
+  }
+}
+
+
+.signin-form-container {
+  position: relative;
+  margin: 0 auto;
+  max-width: 400px;
+  padding-top: 40px;
+}
+
+.signin-form:after {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #959595;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  content: "My Feeds Sign in";
+}
+
+.folders-sidebar li {
+  display: block;
+  float: none;
+}
+
+.folders-sidebar li.feed-add-new  hr {
+  margin-top: 0.5em;
+  margin-bottom: 0;
+}
+
+.folders-sidebar li.active,
+.folders-sidebar li:hover {
+  background-color: #e7e7e7;
+  color: white;
+  width:100%;
+}
+
+.folders-sidebar .active a {
+  font-size: 1.1em;
+  color: #1c4466;
+}
+
+table.feed-item-table tbody tr td {
+  vertical-align: middle;
+  cursor: default;
+}
+
+table.feed-item-table tr.selected {
+  background-color: #f3f3f3;
+}
+table.feed-item-table tbody tr:hover,
+table.feed-item-table tbody tr.selected:hover {
+  background-color: #ddd;
+}
+
+.main .titlebar {
+    background-color: #2b617b;
+    color: #fff;
+    padding-left: 1em;
+    margin-bottom: 1.5em;
+}
+
+.feed .titlebar h2 {
+  display: inline-block;
+}
+
+.feed .titlebar h2 input[type='text'] {
+  background-color: transparent;
+  border:none;
+  color: inherit;
+  font-size: inherit;
+  height:inherit;
+  line-height: inherit;
+  margin: 0;
+  padding:0;
+  box-shadow: none;
+}
+
+
+.feed .feed-menu {
+  display: inline-block;
+  top: -5px;
+}
+
+.feed .feed-menu .dropdown-toggle {
+  background-color: transparent;
+  border:none;
+  color: #eee;
+}
+
+.feed-item-table a.item-link {
+  color: black;
+}
+
+table tbody tr.empty-feed {
+  padding: 1em;
+  text-align: center;
+}
+table tbody tr.empty-feed td {
+  cursor: text;
+}
+
+table tbody tr.empty-feed:hover {
+  background-color: inherit;
+}
+
+table.folders-summary {
+  width: auto;
+}
+
+table.folders-summary td {
+  padding-right: 5px;
+  padding-bottom: 5px;
+}
